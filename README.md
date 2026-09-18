@@ -273,3 +273,5 @@ CI checks Lean 4.33.0 and 4.34.0.
 See [the extraction notes](docs/extraction.md) for provenance and differences
 from the research tactic. Earlier benchmark coverage is not a measurement of
 every possible selector or of this core-only import configuration.
+
+Licensed under the [Apache License, Version 2.0](LICENSE).

@@ -31,7 +31,7 @@ def lazyJevRanker (config : Config) (passEntry : Option String := none) : IO Ran
     Scoring.jevRanker api config.model state choices
 
 /-- Prefer a short, replayed closing tactic to an enormous rendered certificate
-for direct portfolio successes (especially omega). -/
+for direct successes, including downstream closing tactics. -/
 private def suggestClosingTactic (initial : Tactic.SavedState) (code : String)
     (heartbeats : Nat) : TacticM Bool := do
   let finalState ← saveState
@@ -53,17 +53,18 @@ private def suggestClosingTactic (initial : Tactic.SavedState) (code : String)
   return false
 
 private def evalHammer (config : Config) (selector : LibrarySuggestions.Selector)
+    (tactics : TacticSet)
     (passEntry : Option String := none) : TacticM Unit := do
   let initial ← saveState
   let original ← getEnv
   let goals ← getGoals
   let stats ← IO.mkRef ({} : Stats)
-  solve goals selector (← lazyJevRanker config passEntry) stats config
+  solve goals selector (← lazyJevRanker config passEntry) stats config tactics
   setGoals []
   trace[JevHammer] "{toJson (← stats.get)}"
   if let [goal] := goals then
     let s ← stats.get
-    if s.nodes == 0 && portfolioCodes.contains s.winner then
+    if s.nodes == 0 && !s.winner.isEmpty then
       if ← suggestClosingTactic initial s.winner config.tacticHeartbeats then return
     let proof ← inlineAuxiliaries original (← instantiateMVars (.mvar goal))
     TryThis.addExactSuggestion (← getRef) proof (checkState? := initial) (tacticErrorAsInfo := true)
@@ -72,22 +73,34 @@ private def evalHammer (config : Config) (selector : LibrarySuggestions.Selector
 private def evalSelector (selector : TSyntax `term) : TacticM LibrarySuggestions.Selector := do
   unsafe Term.evalTerm LibrarySuggestions.Selector (mkConst ``LibrarySuggestions.Selector) selector
 
+/-- Tactic collections are user-supplied Lean code, independent of the selector. -/
+private def evalTacticSet (tactics : TSyntax `term) : TacticM TacticSet := do
+  unsafe Term.evalTerm TacticSet (mkConst ``TacticSet) tactics
+
 /-- Use Lean's registered premise selector and Jev proof-state guidance.
-An optional `using` expression supplies a selector for this invocation only. -/
-syntax (name := jevHammer) "jev_hammer" optConfig (" using " term)? : tactic
+`with` replaces the entire tactic collection for this invocation; `using`
+supplies its premise selector. Both accept closed Lean expressions. -/
+syntax (name := jevHammer) "jev_hammer" optConfig (" with " term)? (" using " term)? : tactic
 /-- Read the Jev API key from the explicitly named password-store entry. -/
-syntax (name := jevHammerPass) "jev_hammer_pass" str optConfig (" using " term)? : tactic
+syntax (name := jevHammerPass) "jev_hammer_pass" str optConfig
+  (" with " term)? (" using " term)? : tactic
 
 elab_rules : tactic
-  | `(tactic| jev_hammer $cfg:optConfig $[using $selector]?) => do
+  | `(tactic| jev_hammer $cfg:optConfig $[with $tactics]? $[using $selector]?) => do
     let select : LibrarySuggestions.Selector ← match selector with
       | none => pure (fun goal config => LibrarySuggestions.select goal config)
       | some stx => evalSelector stx
-    evalHammer (← elabHammerConfig cfg) select
-  | `(tactic| jev_hammer_pass $entry:str $cfg:optConfig $[using $selector]?) => do
+    let collection ← match tactics with
+      | none => pure defaultTactics
+      | some stx => evalTacticSet stx
+    evalHammer (← elabHammerConfig cfg) select collection
+  | `(tactic| jev_hammer_pass $entry:str $cfg:optConfig $[with $tactics]? $[using $selector]?) => do
     let select : LibrarySuggestions.Selector ← match selector with
       | none => pure (fun goal config => LibrarySuggestions.select goal config)
       | some stx => evalSelector stx
-    evalHammer (← elabHammerConfig cfg) select (some entry.getString)
+    let collection ← match tactics with
+      | none => pure defaultTactics
+      | some stx => evalTacticSet stx
+    evalHammer (← elabHammerConfig cfg) select collection (some entry.getString)
 
 end JevHammer

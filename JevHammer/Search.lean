@@ -1,7 +1,7 @@
 module
 
 public meta import JevHammer.Types
-public meta import JevHammer.Proof
+public meta import JevHammer.DefaultTactics
 public meta import JevHammer.Premises
 
 public meta section
@@ -29,6 +29,7 @@ private structure Runtime where
   stats : IO.Ref Stats
   start : Nat
   selector : LibrarySuggestions.Selector
+  tactics : TacticSet
 
 private def Runtime.check (rt : Runtime) : MetaM Unit := do
   if (← IO.monoMsNow) - rt.start >= rt.config.maxMillis then
@@ -75,28 +76,43 @@ private def Runtime.tryCode (rt : Runtime) (g : MVarId) (code : String)
     saved.restore
     return none
 
-private def discharge (rt : Runtime) (g : MVarId) : MetaM Bool := do
-  for code in portfolioCodes do
+/-- Generation is a query, never a committed proof step. In particular a custom
+callback cannot leak assignments or declarations into the candidates it returns. -/
+private def Runtime.generate (rt : Runtime) (generator : TacticGenerator)
+    (g : MVarId) (premises : Array Name) : MetaM (Array String) := g.withContext do
+  rt.check
+  let saved ← saveState
+  try
+    withHeartbeatBudget rt.config.tacticHeartbeats <|
+      generator { goal := g, premises, config := rt.config }
+  finally saved.restore
+
+private def closeWith (rt : Runtime) (generator : TacticGenerator)
+    (g : MVarId) (premises : Array Name) : MetaM Bool := do
+  for code in ← rt.generate generator g premises do
     if (← rt.tryCode g code true).isSome then
       rt.stats.modify fun s => { s with winner := code }
       return true
   return false
 
-private def relevantSymbol (n : Name) : Bool :=
-  !([``Eq, ``Iff, ``And, ``Or, ``Not, ``Exists, ``True, ``False, ``Decidable,
-     ``OfNat.ofNat, ``OfNat, ``Nat, ``Int].contains n) &&
-  !n.isInternal && !n.toString.startsWith "Lean." && !n.toString.startsWith "JevPilot."
+private def discharge (rt : Runtime) (g : MVarId)
+    (premises : Array Name := #[]) : MetaM Bool :=
+  closeWith rt rt.tactics.close g premises
 
-/-- Round-robin selection prevents one retrieval or action route from filling the cap. -/
-def interleaveUnique (routes : Array (Array String)) (limit : Nat) : Array String := Id.run do
-  let mut result := #[]
-  let depth := routes.foldl (fun n r => max n r.size) 0
-  for i in [:depth] do
-    for route in routes do
-      if result.size >= limit then return result
-      if let some item := route[i]? then
-        unless result.contains item do result := result.push item
-  return result
+private def prepare (rt : Runtime) (g : MVarId) : MetaM (List MVarId) := do
+  let mut pending := [g]
+  for code in ← rt.generate rt.tactics.prepare g #[] do
+    let mut next := []
+    for h in pending do
+      unless ← h.isAssigned do
+        match ← rt.tryCode h code with
+        | none => next := next ++ [h]
+        | some goals =>
+          next := next ++ goals
+          if goals.isEmpty then rt.stats.modify fun s => { s with winner := code }
+    pending := next
+    if pending.isEmpty then break
+  return pending
 
 private def premiseViews (names : Array Name) : MetaM (Array Json) := names.mapM fun n => do
   return Json.mkObj [("lemma", toJson n.toString), ("type", toJson (← ppExpr (← getConstInfo n).type).pretty)]
@@ -121,18 +137,8 @@ private def rankPremises (rt : Runtime) (g : MVarId) (previous : Array Name := #
   let order ← rt.rank state choices
   return order.filterMap (names[·]?)
 
-private def premiseFinish (rt : Runtime) (g : MVarId) (names : Array Name) : MetaM Bool := do
-  for count in #[rt.config.premiseCount, rt.config.premiseCount * 2] do
-    let ns := names.take count
-    unless ns.isEmpty do
-      let printed ← ns.mapM fun name => return (← unresolveNameGlobal name).toString
-      let args := String.intercalate ", " printed.toList
-      for code in #[s!"solve | simp_all [{args}]", s!"grind (gen := 8) [{args}]",
-          s!"aesop (add unsafe 50% {String.intercalate " " printed.toList})" ++ " (config := { maxRuleApplications := 160 })"] do
-        if (← rt.tryCode g code true).isSome then
-          rt.stats.modify fun s => { s with winner := code }
-          return true
-  return false
+private def premiseFinish (rt : Runtime) (g : MVarId) (names : Array Name) : MetaM Bool :=
+  closeWith rt rt.tactics.finish g names
 
 private structure Branch where
   goals : List MVarId
@@ -144,48 +150,11 @@ private structure Branch where
 private def branchView (gs : List MVarId) (path : Array String) : MetaM Json := do
   return Json.mkObj [("actions", toJson path), ("remaining", toJson (← gs.toArray.mapM goalView))]
 
-private def actionCodes (g : MVarId) (premises : Array Name) : MetaM (Array String) := g.withContext do
-  let mut codes := #["simp_all", "intros", "constructor", "ext1", "contrapose!", "push_neg at *", "symm"]
-  let basic := codes
-  let mut definitions := #[]
-  let mut localApply := #[]
-  let mut localCases := #[]
-  let mut localRewrite := #[]
-  let mut lemmaApply := #[]
-  let mut lemmaRewrite := #[]
-  let mut lemmaSimp := #[]
-  -- Selective definitional normalization is generated from expressions, not a
-  -- hand-maintained list of mathematics-specific rewrite rules.
-  let symbols := (← instantiateMVars (← g.getType)).getUsedConstants.filter relevantSymbol
-  for n in symbols.take 8 do
-    if (← getConstInfo n).isDefinition then
-      let more := #[s!"unfold {n}", s!"simp_all only [{n}]"]
-      codes := codes ++ more
-      definitions := definitions ++ more
-  let mut hypCount := 0
-  for h in ← getLCtx do
-    if h.isImplementationDetail || h.userName.isInternal || hypCount >= 8 then continue
-    if ← isProp h.type then
-      let id := h.userName.toString
-      codes := codes ++ #[s!"apply {id}", s!"cases {id}", s!"rw [{id}]", s!"rw [← {id}]"]
-      localApply := localApply.push s!"apply {id}"
-      localCases := localCases.push s!"cases {id}"
-      localRewrite := localRewrite ++ #[s!"rw [{id}]", s!"rw [← {id}]"]
-      hypCount := hypCount + 1
-  for n in premises.take 12 do
-    let n := (← unresolveNameGlobal n).toString
-    codes := codes ++ #[s!"apply {n}", s!"rw [{n}]", s!"rw [← {n}]", s!"simp only [{n}] at *"]
-    lemmaApply := lemmaApply.push s!"apply {n}"
-    lemmaRewrite := lemmaRewrite ++ #[s!"rw [{n}]", s!"rw [← {n}]"]
-    lemmaSimp := lemmaSimp.push s!"simp only [{n}] at *"
-  return interleaveUnique #[basic, lemmaApply, localApply, lemmaRewrite, definitions,
-    localCases, lemmaSimp, localRewrite] codes.size
-
 private def expand (rt : Runtime) (b : Branch) (premises : Array Name) : MetaM (Array Branch) := do
   b.saved.restore
   let gs ← b.goals.filterM fun g => return !(← g.isAssigned)
   let g :: rest := gs | return #[b]
-  let codes ← actionCodes g premises
+  let codes ← rt.generate rt.tactics.steps g premises
   let mut branches : Array Branch := #[]
   let mut seen : Array String := #[]
   for code in codes do
@@ -197,7 +166,7 @@ private def expand (rt : Runtime) (b : Branch) (premises : Array Name) : MetaM (
       let mut pending : List MVarId := []
       for h in next ++ rest do
         unless ← h.isAssigned do
-          if (← rt.tryCode h "solve | assumption | rfl | trivial" true).isNone then
+          unless ← closeWith rt rt.tactics.cleanup h premises do
             pending := pending ++ [h]
       let path := b.path.push code
       let view ← branchView pending path
@@ -228,7 +197,7 @@ private def lookahead (rt : Runtime) (g : MVarId) (premises : Array Name) : Meta
         let mut allClosed := true
         for h in b.goals do
           unless ← h.isAssigned do
-            unless ← discharge rt h do
+            unless ← discharge rt h premises do
               allClosed := false
               break
         if allClosed then
@@ -246,7 +215,7 @@ private def lookahead (rt : Runtime) (g : MVarId) (premises : Array Name) : Meta
             let mut allClosed := true
             for other in b.goals do
               unless ← other.isAssigned do
-                unless ← discharge rt other do allClosed := false; break
+                unless ← discharge rt other branchPremises do allClosed := false; break
             if allClosed then return true
           b.saved.restore
       let next ← expand rt b branchPremises
@@ -272,7 +241,7 @@ private def lookahead (rt : Runtime) (g : MVarId) (premises : Array Name) : Meta
     let mut ok := true
     for h in b.goals do
       unless ← h.isAssigned do
-        unless ← discharge rt h do
+        unless ← discharge rt h premises do
           ok := false
           break
     if ok then
@@ -280,27 +249,31 @@ private def lookahead (rt : Runtime) (g : MVarId) (premises : Array Name) : Meta
       return true
   return false
 /-- Close the whole goal list with kernel-checked proofs, or restore its original
-state. Supply any Lean premise selector and a Jev ranker (or an offline test
-ranker). The selector never has to depend on this library. -/
+state. Supply any Lean premise selector, a Jev ranker (or an offline test ranker),
+and optionally a complete tactic collection. The selector never has to depend
+on this library. -/
 def solve (goals : List MVarId) (selector : LibrarySuggestions.Selector)
-    (ranker : Ranker) (stats : IO.Ref Stats) (config : Config := {}) : MetaM Unit := do
+    (ranker : Ranker) (stats : IO.Ref Stats) (config : Config := {})
+    (tactics : TacticSet := defaultTactics) : MetaM Unit := do
   let _ : MonadExceptOf Exception MetaM :=
     { (inferInstance : MonadExceptOf Exception MetaM) with tryCatch := tryCatchRuntimeEx }
   let initial ← saveState
   let original ← getEnv
   let start ← IO.monoMsNow
-  let rt : Runtime := { config, ranker, stats, start, selector }
+  let rt : Runtime := { config, ranker, stats, start, selector, tactics }
   try
     for g in goals do
       if ← g.isAssigned then continue
       g.withContext do
         unless ← discharge rt g do
-          let (_, g) ← g.intros
-          let before ← saveState
-          let premises ← rankPremises rt g
-          unless ← premiseFinish rt g premises do
-            before.restore
-            unless ← lookahead rt g premises do throwError "JevHammer did not close the goals"
+          for h in ← prepare rt g do
+            unless ← h.isAssigned do
+              h.withContext do
+                let before ← saveState
+                let premises ← rankPremises rt h
+                unless ← premiseFinish rt h premises do
+                  before.restore
+                  unless ← lookahead rt h premises do throwError "JevHammer did not close the goals"
     for g in goals do
       g.withContext do
         let proof ← instantiateMVars (.mvar g)

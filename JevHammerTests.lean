@@ -1,3 +1,4 @@
 import JevHammerTests.Regression
 import JevHammerTests.Scoring
+import JevHammerTests.Tactics
 import JevHammerExamples.Basic

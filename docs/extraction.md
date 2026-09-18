@@ -31,6 +31,10 @@ Changes made for the standalone package:
 - Require explicit password-store entries and load credentials lazily.
 - Depend only on Lean and JevPilot. Extra tactics are available when imported by
   the calling project, so the core does not require Mathlib or Aesop.
+- Expose all proof attempts through `TacticSet` generators, with the original
+  collection in `defaultTactics`. Introductions are now an explicit, bounded
+  preparation tactic; no search path inserts an unconfigured tactic. This adds
+  generator-query overhead and counts preparation in the trial statistics.
 
 The search still uses the adaptive engine's diverse action ordering, bounded
 beam, cycle suppression, premise-assisted solvers, and one changed-goal premise

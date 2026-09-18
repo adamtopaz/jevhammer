@@ -15,3 +15,20 @@ def downstreamFinish (selector : LibrarySuggestions.Selector)
   let stats ← IO.mkRef ({} : JevHammer.Stats)
   JevHammer.solve (← getGoals) selector (JevHammer.Scoring.jevRanker client) stats
   setGoals []
+
+-- A consuming project can extend the collection without modifying JevHammer.
+macro "consumer_close" : tactic => `(tactic| exact True.intro)
+
+def consumerTactics : JevHammer.TacticSet := {
+  JevHammer.defaultTactics with
+  close := (JevHammer.TacticGenerator.fixed #["consumer_close"]).append
+    JevHammer.defaultTactics.close }
+
+example : True := by jev_hammer with consumerTactics using downstreamSelector
+
+def downstreamCustomFinish (selector : LibrarySuggestions.Selector)
+    (client : JevPilot.TypeSafe.Client) (tactics : JevHammer.TacticSet) : TacticM Unit := do
+  let stats ← IO.mkRef ({} : JevHammer.Stats)
+  JevHammer.solve (← getGoals) selector (JevHammer.Scoring.jevRanker client) stats
+    (tactics := tactics)
+  setGoals []

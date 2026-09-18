@@ -1,0 +1,9 @@
+name = "jevhammerConsumer"
+defaultTargets = ["JevHammerConsumer"]
+
+[[require]]
+name = "jevhammer"
+path = "../.."
+
+[[lean_lib]]
+name = "JevHammerConsumer"

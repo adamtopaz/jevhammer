@@ -1,0 +1,35 @@
+name: Lean
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        lean: ["v4.33.0", "v4.34.0"]
+    env:
+      LEAN_NUM_THREADS: "2"
+    steps:
+      - uses: actions/checkout@v5
+      - name: Select Lean version
+        env:
+          LEAN_VERSION: ${{ matrix.lean }}
+        run: |
+          printf 'leanprover/lean4:%s\n' "$LEAN_VERSION" > lean-toolchain
+          cp lean-toolchain tests/consumer/lean-toolchain
+      - uses: leanprover/lean-action@v1
+        with:
+          build: "true"
+          test: "true"
+          use-mathlib-cache: "false"
+          use-github-cache: "false"
+      - name: Use library from an independent Lake project
+        run: lake -d tests/consumer build

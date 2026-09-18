@@ -1,0 +1,16 @@
+{"version": "1.2.0",
+ "packagesDir": ".lake/packages",
+ "packages":
+ [{"url": "https://github.com/adamtopaz/jevpilot",
+   "type": "git",
+   "subDir": null,
+   "scope": "",
+   "rev": "0d5973766a48ba1be44c9f61e994a6956f9ec4b1",
+   "name": "jevpilot",
+   "manifestFile": "lake-manifest.json",
+   "inputRev": "0d5973766a48ba1be44c9f61e994a6956f9ec4b1",
+   "inherited": false,
+   "configFile": "lakefile.toml"}],
+ "name": "jevhammer",
+ "lakeDir": ".lake",
+ "fixedToolchain": false}

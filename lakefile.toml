@@ -1,0 +1,19 @@
+name = "jevhammer"
+version = "0.1.0"
+description = "Jev-guided proof search with pluggable Lean premise selection"
+defaultTargets = ["JevHammer"]
+testDriver = "JevHammerTests"
+
+[[require]]
+name = "jevpilot"
+git = "https://github.com/adamtopaz/jevpilot"
+rev = "0d5973766a48ba1be44c9f61e994a6956f9ec4b1"
+
+[[lean_lib]]
+name = "JevHammer"
+
+[[lean_lib]]
+name = "JevHammerTests"
+
+[[lean_lib]]
+name = "JevHammerExamples"

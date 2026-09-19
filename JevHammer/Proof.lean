@@ -51,9 +51,16 @@ def runCode (g : MVarId) (code : String) (heartbeats : Nat) : MetaM (List MVarId
     { (inferInstance : MonadExceptOf Exception MetaM) with tryCatch := tryCatchRuntimeEx }
   -- `first` disables tactic recovery, and errToSorry disables term recovery.
   -- A failed speculative tactic must throw, never create a synthetic admission.
-  let stx ← ofExcept <| Parser.runParserCategory (← getEnv) `tactic ("first | " ++ code)
+  let input := "first | " ++ code
+  let fileName := "<jevhammer>"
+  let stx ← ofExcept <| Parser.runParserCategory (← getEnv) `tactic input fileName
   let messages := (← getThe Core.State).messages
-  withHeartbeatBudget heartbeats do
+  -- Tactics that emit suggestions interpret syntax offsets in the active file
+  -- map. These offsets refer to our script, and can land inside UTF-8 characters
+  -- (or beyond EOF) in the caller's source. Keep the synthetic context scoped.
+  withTheReader Core.Context (fun c => { c with
+      fileName, fileMap := FileMap.ofString input, ref := stx }) <|
+    withHeartbeatBudget heartbeats do
     try
       let result ← Elab.runTactic g stx { errToSorry := false }
       let after := (← getThe Core.State).messages

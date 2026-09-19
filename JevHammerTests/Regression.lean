@@ -171,6 +171,32 @@ elab "check_no_admissions" : tactic => withMainContext do
 
 example : True := by check_no_admissions; trivial
 
+-- Generated syntax positions belong to the generated script, not the caller's
+-- file. Suggestion-producing tactics consult that map even in speculative runs.
+elab "source_mapped_close" : tactic => do
+  unless (← getFileMap).source == "first | source_mapped_close" do
+    throwError "generated tactic inherited the caller's source map"
+  TryThis.addSuggestion (← getRef) { suggestion := (← `(tactic| exact True.intro)) }
+  evalTactic (← `(tactic| exact True.intro))
+
+elab "check_generated_positions" : tactic => withMainContext do
+  -- Synthetic offsets can fall inside multibyte characters in the caller.
+  let callerSource := "∀αβγδεζηθικλμνξοπρστυφχψω"
+  withTheReader Core.Context (fun c => { c with
+      fileName := "unicode-caller.lean", fileMap := FileMap.ofString callerSource }) do
+    let messages := (← getThe Core.State).messages.toList.length
+    let goal ← mkFreshExprMVar (mkConst ``True)
+    let remaining ← runCode goal.mvarId! "source_mapped_close" 15000
+    unless remaining.isEmpty && (← goal.mvarId!.isAssigned) do
+      throwError "suggestion-producing tactic did not close its goal"
+    unless (← getFileMap).source == callerSource &&
+        (← readThe Core.Context).fileName == "unicode-caller.lean" do
+      throwError "generated source map escaped its scope"
+    unless (← getThe Core.State).messages.toList.length == messages do
+      throwError "speculative suggestions escaped their scope"
+
+example : True := by check_generated_positions; trivial
+
 -- A selector exception must be atomic across earlier solved goals as well.
 elab "check_selector_exception" : tactic => withMainContext do
   let first ← mkFreshExprMVar (mkConst ``True)

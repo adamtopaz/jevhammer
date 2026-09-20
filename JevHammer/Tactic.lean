@@ -54,12 +54,13 @@ private def suggestClosingTactic (initial : Tactic.SavedState) (code : String)
 
 private def evalHammer (config : Config) (selector : LibrarySuggestions.Selector)
     (tactics : TacticSet)
-    (passEntry : Option String := none) : TacticM Unit := do
+    (passEntry : Option String := none)
+    (selectorFactory : Option SelectorFactory := none) : TacticM Unit := do
   let initial ← saveState
   let original ← getEnv
   let goals ← getGoals
   let stats ← IO.mkRef ({} : Stats)
-  solve goals selector (← lazyJevRanker config passEntry) stats config tactics
+  solve goals selector (← lazyJevRanker config passEntry) stats config tactics selectorFactory
   setGoals []
   trace[JevHammer] "{toJson (← stats.get)}"
   if let [goal] := goals then
@@ -77,30 +78,37 @@ private def evalSelector (selector : TSyntax `term) : TacticM LibrarySuggestions
 private def evalTacticSet (tactics : TSyntax `term) : TacticM TacticSet := do
   unsafe Term.evalTerm TacticSet (mkConst ``TacticSet) tactics
 
+private def evalSelectorFactory (factory : TSyntax `term) : TacticM SelectorFactory := do
+  unsafe Term.evalTerm SelectorFactory (mkConst ``SelectorFactory) factory
+
 /-- Use Lean's registered premise selector and Jev proof-state guidance.
 `with` replaces the entire tactic collection for this invocation; `using`
-supplies its premise selector. Both accept closed Lean expressions. -/
-syntax (name := jevHammer) "jev_hammer" optConfig (" with " term)? (" using " term)? : tactic
+supplies its premise selector. `guiding` decorates it with a budgeted selector
+factory. All three accept closed Lean expressions. -/
+syntax (name := jevHammer) "jev_hammer" optConfig (" with " term)? (" using " term)?
+  (" guiding " term)? : tactic
 /-- Read the Jev API key from the explicitly named password-store entry. -/
 syntax (name := jevHammerPass) "jev_hammer_pass" str optConfig
-  (" with " term)? (" using " term)? : tactic
+  (" with " term)? (" using " term)? (" guiding " term)? : tactic
 
 elab_rules : tactic
-  | `(tactic| jev_hammer $cfg:optConfig $[with $tactics]? $[using $selector]?) => do
+  | `(tactic| jev_hammer $cfg:optConfig $[with $tactics]? $[using $selector]? $[guiding $factory]?) => do
     let select : LibrarySuggestions.Selector ← match selector with
       | none => pure (fun goal config => LibrarySuggestions.select goal config)
       | some stx => evalSelector stx
     let collection ← match tactics with
       | none => pure defaultTactics
       | some stx => evalTacticSet stx
-    evalHammer (← elabHammerConfig cfg) select collection
-  | `(tactic| jev_hammer_pass $entry:str $cfg:optConfig $[with $tactics]? $[using $selector]?) => do
+    let factory ← factory.mapM evalSelectorFactory
+    evalHammer (← elabHammerConfig cfg) select collection none factory
+  | `(tactic| jev_hammer_pass $entry:str $cfg:optConfig $[with $tactics]? $[using $selector]? $[guiding $factory]?) => do
     let select : LibrarySuggestions.Selector ← match selector with
       | none => pure (fun goal config => LibrarySuggestions.select goal config)
       | some stx => evalSelector stx
     let collection ← match tactics with
       | none => pure defaultTactics
       | some stx => evalTacticSet stx
-    evalHammer (← elabHammerConfig cfg) select collection (some entry.getString)
+    let factory ← factory.mapM evalSelectorFactory
+    evalHammer (← elabHammerConfig cfg) select collection (some entry.getString) factory
 
 end JevHammer

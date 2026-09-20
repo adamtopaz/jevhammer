@@ -32,8 +32,12 @@ def request (state : Json) (choices : Array Json) (model : String) : TypeSafe.Re
   let premise := state.getObjValD "task" == .str "premises" ||
     state.getObjValD "task" == .str "premise_refresh"
   let independent := state.getObjValD "independent_scores" == .bool true
-  let candidates := compact state choices
-  let instruction := if premise then
+  let selector := state.getObjValD "task" == .str "selector"
+  let candidates := if selector then choices else compact state choices
+  let instruction := if selector then
+    (state.getObjValAs? String "selector_question").toOption.getD
+      "Will this mathematical search action help find useful premises for the Lean goal?"
+    else if premise then
     "Will this mathematical lemma be useful in a short proof of the Lean goal, by rewriting, forward reasoning, or backward application, possibly together with other lemmas? Judge the complete statement against the target and local hypotheses."
     else
       "Can ALL remaining goals in this checked Lean continuation likely be closed by short standard proofs? Judge actual progress, available hypotheses, and unresolved witnesses. A circular restatement or arbitrary underconstrained witness is unlikely to help. Goals marked inherits_root_context inherit the original root context plus additional_context."

@@ -250,10 +250,35 @@ return executable tactic text. The whole goal list succeeds with kernel-checked
 proofs or restores its original state on failure. Successful proofs are checked
 again after inlining newly generated auxiliaries into the original environment.
 
+Selectors that need Jev decisions can use an optional `selectorFactory` argument.
+A `SelectorFactory` receives a budgeted `SelectorRanker` and the base selector,
+and returns a standard selector. The callback takes a mathematical question,
+the current goal, and an array of JSON choices; it returns their ranked indices.
+It shares the search's clock, call limit, client, failure fallback, and usage
+counters. Choices with fewer than two entries make no request. Selector choices
+use independent questions and count as premise-selection calls. They cannot be
+relabelled as proof-state calls. The callback's question is program-supplied;
+the model still only reorders supplied choices.
+
+```lean
+-- JevHammer.solve goals selector ranker stats config
+--   (selectorFactory := some myFactory)
+-- jev_hammer using mySelector guiding myFactory
+-- jev_hammer with myTactics using mySelector guiding myFactory
+```
+
+`guiding` decorates the selector from `using`, or Lean's registered selector if
+`using` is omitted. The password-store variant supports the same clause. A
+factory can be implemented in a selector library without importing JevHammer:
+its type uses only Lean's `MetaM`, `MVarId`, `Json`, and standard selector types.
+Factory construction is pure; initialization should make no model requests.
+As with ordinary selectors, Lean state is restored after querying the result.
+
 Statistics include premise/state ranking calls, failures, successfully returned
 token usage, nodes, trials, branches, retrieval time, and elapsed time. These
 token counters are not a complete billing ledger for failed requests or for a
-selector's own service calls.
+selector's own service calls. `selectorRankCalls` records the subset of premise
+calls made through the injected callback; those calls use the shared ledger.
 
 ## Develop
 

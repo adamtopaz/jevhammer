@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "liveModelCalls": 0,
+  "publicLean434": {
+    "schema": 1,
+    "status": "complete",
+    "phase": "public Lean version",
+    "resources": {
+      "initial": {
+        "memoryMax": 16000000000,
+        "swapMax": "0",
+        "memory.peak": "13434880",
+        "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0"
+      },
+      "final": {
+        "memoryMax": 16000000000,
+        "swapMax": "0",
+        "memory.peak": "231391232",
+        "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0"
+      }
+    },
+    "checks": [
+      {
+        "label": "build",
+        "status": "complete",
+        "seconds": 0.16425868798978627
+      },
+      {
+        "label": "native",
+        "status": "complete",
+        "seconds": 1.7690449280198663
+      },
+      {
+        "label": "consumer",
+        "status": "complete",
+        "seconds": 0.565119945909828
+      }
+    ]
+  },
+  "benchmarkLean433": {
+    "schema": 1,
+    "status": "complete",
+    "lean": "leanprover/lean4:v4.33.0",
+    "resources": {
+      "initial": {
+        "memoryMax": 16000000000,
+        "swapMax": "0",
+        "memory.peak": "13635584",
+        "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0"
+      },
+      "final": {
+        "memoryMax": 16000000000,
+        "swapMax": "0",
+        "memory.peak": "577593344",
+        "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0"
+      }
+    },
+    "sourceSha256": {
+      "JevHammer/DefaultTactics.lean": "9ec813fc85febff25a1b79acc7168da90c187016d0f551727946a6f10294caac",
+      "JevHammer/Premises.lean": "bf762528d17c147060d2e209196b188feb8ff0e0e69f9cef8e6c8c2812e57851",
+      "JevHammer/Proof.lean": "b532bbde996b1de7981f26a234dddc547551b57584df5a646386bc1779e2bf20",
+      "JevHammer/Scoring.lean": "42d0399a5d6323811a83a68ea850dde8b33d898e03f8de2a74c46c0710db9b4b",
+      "JevHammer/Search.lean": "a820a630f8ff6cc6e22e0e0d6d0d8a9341c13c52a3d9c779e05739ee796c2127",
+      "JevHammer/Tactic.lean": "3ee5e232a7fa7920a0c90545b75c6addbd01628729898924030fdd46cd9a52d5",
+      "JevHammer/Tactics.lean": "437decefff5c12645b9359c7494684518f23ccd2658996d32c7e4b9a954be28d",
+      "JevHammer/Types.lean": "a8143ffa56f80e619ed2e3662e45c925c5cf85b147782571c1cd7450549b2c35",
+      "JevHammerTests/Regression.lean": "853681c7e1d1d3e8a3c39ea0030dc1750ad8a861a9f8e6bcfef63c012613d132",
+      "JevHammerTests/Scoring.lean": "b5909f02e9d13e6c00c46578473ca38c889e69f33c6d0a398a0da913560ee0fb",
+      "JevHammerTests/SelectorGuidance.lean": "21ae0f85d28f80e82b70e61a530657f16df221da439bcef9994fa3f3b62b2b47",
+      "JevHammerTests/Tactics.lean": "b2418b37547c05ba05c904b5a06e4e1de8b7fae00e62558b57f2168d3955d3dc"
+    },
+    "checks": [
+      {
+        "label": "build",
+        "status": "complete",
+        "seconds": 5.424153514904901
+      },
+      {
+        "label": "native",
+        "status": "complete",
+        "seconds": 3.5204202549066395
+      },
+      {
+        "label": "consumer",
+        "status": "complete",
+        "seconds": 0.6158608449622989
+      }
+    ]
+  },
+  "limitations": [
+    "Offline mocks validate API contracts; no proof-quality improvement is claimed.",
+    "Lean 4.33 checks use identical source files and a temporary local-path dependency to the same JevPilot revision."
+  ]
+}

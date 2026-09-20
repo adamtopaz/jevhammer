@@ -5,7 +5,7 @@ public meta import Lean.LibrarySuggestions.Basic
 
 public meta section
 namespace JevHammer
-open Lean
+open Lean Meta
 open JevPilot
 
 /-- Search budgets are shared across the supplied goal list. Wall time is soft:
@@ -38,6 +38,16 @@ structure Ranking where
 proof text or new tactics. Injection supports offline testing and recorded replay. -/
 abbrev Ranker := Json → Array Json → IO Ranking
 
+/-- Rank selector-generated mathematical choices using the search's existing
+clock, call limit, client and statistics. The question is program-supplied;
+the result is a checked permutation, with candidate-order fallback. -/
+abbrev SelectorRanker := String → MVarId → Array Json → MetaM (Array Nat)
+
+/-- Decorate a standard selector with access to budgeted Jev decisions. This
+function type can also be written in a selector library without importing
+JevHammer. Applying the factory itself performs no monadic work. -/
+abbrev SelectorFactory := SelectorRanker → LibrarySuggestions.Selector → LibrarySuggestions.Selector
+
 def isPermutation (order : Array Nat) (size : Nat) : Bool :=
   order.size == size && (List.range size).all (order.contains ·)
 
@@ -46,6 +56,8 @@ structure Stats where
   trials : Nat := 0
   rankCalls : Nat := 0
   premiseRankCalls : Nat := 0
+  /-- A subset of premiseRankCalls, made through an injected selector callback. -/
+  selectorRankCalls : Nat := 0
   stateRankCalls : Nat := 0
   rankFailures : Nat := 0
   inputTokens : Nat := 0

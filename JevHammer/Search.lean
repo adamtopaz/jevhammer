@@ -45,6 +45,8 @@ private def Runtime.rank (rt : Runtime) (state : Json) (choices : Array Json) : 
   rt.stats.modify fun s => { s with
     rankCalls := s.rankCalls + 1,
     premiseRankCalls := s.premiseRankCalls + if isState then 0 else 1,
+    selectorRankCalls := s.selectorRankCalls +
+      if state.getObjValD "task" == .str "selector" then 1 else 0,
     stateRankCalls := s.stateRankCalls + if isState then 1 else 0 }
   try
     let r ← rt.ranker state choices
@@ -58,6 +60,22 @@ private def Runtime.rank (rt : Runtime) (state : Json) (choices : Array Json) : 
     rt.stats.modify fun s => { s with rankFailures := s.rankFailures + 1 }
     trace[JevHammer] "Jev ranking failed; keeping candidate order: {error.toMessageData}"
     return fallback
+
+/-- Selectors cannot relabel their requests as proof-state work. They receive
+the same budget/failure handling as the search, without direct client access. -/
+private def Runtime.selectorRank (rt : Runtime) : SelectorRanker := fun question goal choices => do
+  let fallback := (List.range choices.size).toArray
+  if choices.size < 2 then return fallback
+  if question.isEmpty then throwError "selector ranking needs a mathematical question"
+  if (← rt.stats.get).rankCalls >= rt.config.maxCalls then return fallback
+  rt.check
+  let saved ← saveState
+  try
+    let state := Json.mkObj [("task", .str "selector"),
+      ("independent_scores", .bool true), ("selector_question", toJson question),
+      ("goal", ← goalView goal)]
+    rt.rank state choices
+  finally saved.restore
 
 private def Runtime.tryCode (rt : Runtime) (g : MVarId) (code : String)
     (close : Bool := false) : MetaM (Option (List MVarId)) := do
@@ -254,13 +272,17 @@ and optionally a complete tactic collection. The selector never has to depend
 on this library. -/
 def solve (goals : List MVarId) (selector : LibrarySuggestions.Selector)
     (ranker : Ranker) (stats : IO.Ref Stats) (config : Config := {})
-    (tactics : TacticSet := defaultTactics) : MetaM Unit := do
+    (tactics : TacticSet := defaultTactics)
+    (selectorFactory : Option SelectorFactory := none) : MetaM Unit := do
   let _ : MonadExceptOf Exception MetaM :=
     { (inferInstance : MonadExceptOf Exception MetaM) with tryCatch := tryCatchRuntimeEx }
   let initial ← saveState
   let original ← getEnv
   let start ← IO.monoMsNow
   let rt : Runtime := { config, ranker, stats, start, selector, tactics }
+  let rt := match selectorFactory with
+    | none => rt
+    | some make => { rt with selector := make rt.selectorRank selector }
   try
     for g in goals do
       if ← g.isAssigned then continue

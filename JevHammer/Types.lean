@@ -22,6 +22,10 @@ structure Config where
   tacticHeartbeats : Nat := 15000
   /-- Preserve the selector's order by default. Jev always guides proof states. -/
   guidePremises : Bool := false
+  /-- Try the base selector's premises with the configured finisher before
+  invoking selector-factory guidance or ordinary premise reranking. Both stages
+  share the original clock and call budget. Disabled by default. -/
+  deferPremiseGuidance : Bool := false
   /-- Retrieve once more after a checked transformation changes a subgoal. -/
   refreshPremises : Bool := true
   /-- Used by the public tactic's lazy Jev client. -/
@@ -70,5 +74,8 @@ structure Stats where
   winner : String := ""
   retrievalMs : Nat := 0
   refreshes : Nat := 0
+  /-- Additional base-premise finishing passes before model premise guidance. -/
+  unguidedPremiseAttempts : Nat := 0
+  unguidedPremiseFinishes : Nat := 0
   deriving Repr, ToJson
 end JevHammer

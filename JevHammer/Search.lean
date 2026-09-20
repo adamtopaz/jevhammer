@@ -135,14 +135,15 @@ private def prepare (rt : Runtime) (g : MVarId) : MetaM (List MVarId) := do
 private def premiseViews (names : Array Name) : MetaM (Array Json) := names.mapM fun n => do
   return Json.mkObj [("lemma", toJson n.toString), ("type", toJson (← ppExpr (← getConstInfo n).type).pretty)]
 
-private def rankPremises (rt : Runtime) (g : MVarId) (previous : Array Name := #[]) : MetaM (Array Name) := g.withContext do
+private def rankPremises (rt : Runtime) (g : MVarId) (previous : Array Name := #[])
+    (guide : Bool := true) : MetaM (Array Name) := g.withContext do
   let start ← IO.monoMsNow
   let names ← selectPremises rt.selector g rt.config.maxPremises
   let elapsed := (← IO.monoMsNow) - start
   rt.stats.modify fun s => { s with
     premises := s.premises + names.size
     retrievalMs := s.retrievalMs + elapsed }
-  unless rt.config.guidePremises do return names
+  unless guide && rt.config.guidePremises do return names
   let choices ← premiseViews names
   let goal ← goalView g
   let oldViews ← premiseViews previous
@@ -292,10 +293,27 @@ def solve (goals : List MVarId) (selector : LibrarySuggestions.Selector)
             unless ← h.isAssigned do
               h.withContext do
                 let before ← saveState
-                let premises ← rankPremises rt h
-                unless ← premiseFinish rt h premises do
-                  before.restore
-                  unless ← lookahead rt h premises do throwError "JevHammer did not close the goals"
+                let closedBeforeGuidance ← if config.deferPremiseGuidance &&
+                    (selectorFactory.isSome || config.guidePremises) then do
+                  rt.stats.modify fun s => { s with
+                    unguidedPremiseAttempts := s.unguidedPremiseAttempts + 1 }
+                  -- Keep the same configuration for user-supplied tactics.
+                  -- Only selection bypasses the factory and model reranking.
+                  let native := { rt with selector := selector }
+                  let premises ← rankPremises native h (guide := false)
+                  if ← premiseFinish rt h premises then
+                    rt.stats.modify fun s => { s with
+                      unguidedPremiseFinishes := s.unguidedPremiseFinishes + 1 }
+                    pure true
+                  else
+                    before.restore
+                    pure false
+                else pure false
+                unless closedBeforeGuidance do
+                  let premises ← rankPremises rt h
+                  unless ← premiseFinish rt h premises do
+                    before.restore
+                    unless ← lookahead rt h premises do throwError "JevHammer did not close the goals"
     for g in goals do
       g.withContext do
         let proof ← instantiateMVars (.mvar g)

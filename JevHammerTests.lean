@@ -1,5 +1,6 @@
 import JevHammerTests.Regression
 import JevHammerTests.Scoring
 import JevHammerTests.SelectorGuidance
+import JevHammerTests.DeferredGuidance
 import JevHammerTests.Tactics
 import JevHammerExamples.Basic

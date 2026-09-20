@@ -32,3 +32,16 @@ def downstreamCustomFinish (selector : LibrarySuggestions.Selector)
   JevHammer.solve (← getGoals) selector (JevHammer.Scoring.jevRanker client) stats
     (tactics := tactics)
   setGoals []
+
+-- Deferred guidance is available through the same public import and tactic
+-- syntax. This succeeds without constructing a client or calling the factory.
+def consumerPremiseTactics : JevHammer.TacticSet := {
+  finish := fun ctx => pure <| if ctx.premises.contains ``Nat.add_comm then
+    #["exact Nat.add_comm _ _"] else #[] }
+
+def consumerForbiddenGuidance : JevHammer.SelectorFactory := fun _ _ _ _ =>
+  throwError "the base premises should have finished before guidance"
+
+example (a b : Nat) : a + b = b + a := by
+  jev_hammer (deferPremiseGuidance := true) with consumerPremiseTactics
+    using downstreamSelector guiding consumerForbiddenGuidance

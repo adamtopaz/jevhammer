@@ -1,0 +1,107 @@
+{
+  "schema": 1,
+  "status": "complete",
+  "realModelCalls": 0,
+  "memoryLimitBytes": 16000000000,
+  "swapLimitBytes": 0,
+  "feature": "optional timed base-premise finish before factory guidance or ordinary premise reranking",
+  "checks": "default and unguided compatibility; lazy model/factory avoidance; partial-progress restoration; shared calls and clock; later state guidance; whole-goal atomicity; public tactic and independent consumer",
+  "proofCoverageImprovement": "not yet benchmarked",
+  "runs": [
+    {
+      "schema": 1,
+      "status": "complete",
+      "phase": "public Lean version, deferred guidance",
+      "resources": {
+        "initial": {
+          "memoryMax": 16000000000,
+          "swapMax": "0",
+          "memory.peak": "13774848",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0"
+        },
+        "final": {
+          "memoryMax": 16000000000,
+          "swapMax": "0",
+          "memory.peak": "2246590464",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0"
+        }
+      },
+      "checks": [
+        {
+          "label": "build",
+          "status": "complete",
+          "seconds": 6.136458344990388
+        },
+        {
+          "label": "native",
+          "status": "complete",
+          "seconds": 5.174320832127705
+        },
+        {
+          "label": "consumer",
+          "status": "complete",
+          "seconds": 0.6160264709033072
+        }
+      ],
+      "rawReportSha256": "71c557d174a59ab86d70d015636604658ce0c0e23cf111a49d4ef266ac6aebeb",
+      "lean": "leanprover/lean4:v4.34.0"
+    },
+    {
+      "schema": 1,
+      "status": "complete",
+      "lean": "leanprover/lean4:v4.33.0",
+      "resources": {
+        "initial": {
+          "memoryMax": 16000000000,
+          "swapMax": "0",
+          "memory.peak": "13373440",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0"
+        },
+        "final": {
+          "memoryMax": 16000000000,
+          "swapMax": "0",
+          "memory.peak": "450510848",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0"
+        }
+      },
+      "sourceSha256": {
+        "JevHammer/DefaultTactics.lean": "9ec813fc85febff25a1b79acc7168da90c187016d0f551727946a6f10294caac",
+        "JevHammer/Premises.lean": "bf762528d17c147060d2e209196b188feb8ff0e0e69f9cef8e6c8c2812e57851",
+        "JevHammer/Proof.lean": "b532bbde996b1de7981f26a234dddc547551b57584df5a646386bc1779e2bf20",
+        "JevHammer/Scoring.lean": "42d0399a5d6323811a83a68ea850dde8b33d898e03f8de2a74c46c0710db9b4b",
+        "JevHammer/Search.lean": "71033bb1ef7f0cec989f25083f68da7b01f04f0b6152afbd3638d56720cd48f6",
+        "JevHammer/Tactic.lean": "e702495c453889442c9d2e0b8ab3d7eb1adc58aaac7359836c997cb09e508a5b",
+        "JevHammer/Tactics.lean": "437decefff5c12645b9359c7494684518f23ccd2658996d32c7e4b9a954be28d",
+        "JevHammer/Types.lean": "8bc4ce2cfccd6a67fbc8e8d9de33e44d0cc976482ca41b5fff22957f88484885",
+        "JevHammer.lean": "eef0fb8b33b60c1a6550b4241e7cf9d5c220702f56b13fbd907e2035716a8d97",
+        "JevHammerExamples/Basic.lean": "a67402da6cc9249fc8c27d485c43696391256cfc513ac3288fd14527ff8711d3",
+        "JevHammerTests/DeferredGuidance.lean": "282cd385e67a465b67ad5dbb8a99f86170ece744f7e02f97ac4f3ff9f2923ab7",
+        "JevHammerTests/Regression.lean": "853681c7e1d1d3e8a3c39ea0030dc1750ad8a861a9f8e6bcfef63c012613d132",
+        "JevHammerTests/Scoring.lean": "b5909f02e9d13e6c00c46578473ca38c889e69f33c6d0a398a0da913560ee0fb",
+        "JevHammerTests/SelectorGuidance.lean": "21ae0f85d28f80e82b70e61a530657f16df221da439bcef9994fa3f3b62b2b47",
+        "JevHammerTests/Tactics.lean": "b2418b37547c05ba05c904b5a06e4e1de8b7fae00e62558b57f2168d3955d3dc",
+        "JevHammerTests.lean": "8b36e8836a2e6b92ad261fe59430f52e55e5a66ee08b6b760ca3fe2f4e1dc8cb",
+        "examples/Mathlib.lean": "ff58ee5825de54a3b3ee218f61aa2a766a6aab814f11968eda8a5998e4954955",
+        "tests/consumer/JevHammerConsumer.lean": "732248a851d93a09cbf6bdad9c97d202ceaf9bda9568ab8dfca33b19ff8c5e2d"
+      },
+      "checks": [
+        {
+          "label": "build",
+          "status": "complete",
+          "seconds": 4.57202167599462
+        },
+        {
+          "label": "native",
+          "status": "complete",
+          "seconds": 3.3703630790114403
+        },
+        {
+          "label": "consumer",
+          "status": "complete",
+          "seconds": 0.6161880730651319
+        }
+      ],
+      "rawReportSha256": "5fdb1a5d74a1c04729dcd10b8cf1a628df6658bcaeeb629188e880e35bbcc488"
+    }
+  ]
+}

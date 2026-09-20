@@ -280,6 +280,17 @@ token counters are not a complete billing ledger for failed requests or for a
 selector's own service calls. `selectorRankCalls` records the subset of premise
 calls made through the injected callback; those calls use the shared ledger.
 
+Set `deferPremiseGuidance := true` to try the configured finisher with the base
+selector's premises before spending calls on selector guidance or premise
+reranking. If that pass succeeds, no premise-guidance request is made. If it
+fails, Lean state is restored and normal guided selection and proof-state search
+continue under the original clock and shared call limit. The default is false.
+Methods with neither a selector factory nor `guidePremises` keep their existing
+execution path. A failed early pass can cause a second base-selector query;
+both queries and all tactic work are included in the measured goal cost.
+`unguidedPremiseAttempts` and `unguidedPremiseFinishes` report these extra early
+passes. This scheduling option has no demonstrated benchmark advantage yet.
+
 ## Develop
 
 ```sh

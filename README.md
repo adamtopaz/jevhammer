@@ -12,7 +12,7 @@ default toolchain is Lean 4.34.0; Lean 4.33.0 is also supported.
 
 ## Benchmark evidence
 
-A [fresh 1,024-goal Mathlib comparison](https://github.com/adamtopaz/jevhammer_benchmark/blob/research/cpu-selector/docs/full-leanhammer-confirmation-v1.md)
+A [fresh 1,024-goal Mathlib comparison](https://github.com/adamtopaz/jevhammer_benchmark/blob/main/docs/full-leanhammer-confirmation-v1.md)
 measured JevHammer with CPU sparse/conclusion premises at **450/1,024 (43.95%)**,
 JevHammer with neural/conclusion premises at **469/1,024 (45.80%)**, and full
 LeanHammer at **372/1,024 (36.33%)**. Each counted proof arrived within six
@@ -23,8 +23,8 @@ full LeanHammer was 7.62 percentage points (module-bootstrap 95% interval
 These results use a specific downstream Mathlib tactic collection and pinned
 selectors, not the core defaults alone. The study used a shared 16 GB cap and
 intermediate goals from 131 modules; it does not establish a universal ranking.
-See [sampling](https://github.com/adamtopaz/jevhammer_benchmark/blob/research/cpu-selector/docs/benchmark-selection.md)
-and [reproduction](https://github.com/adamtopaz/jevhammer_benchmark/blob/research/cpu-selector/docs/reproducing-confirmation.md)
+See [sampling](https://github.com/adamtopaz/jevhammer_benchmark/blob/main/docs/benchmark-selection.md)
+and [reproduction](https://github.com/adamtopaz/jevhammer_benchmark/blob/main/docs/reproducing-confirmation.md)
 for configurations, exclusions, costs and limitations.
 
 ## Install
